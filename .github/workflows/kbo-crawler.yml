@@ -3,7 +3,7 @@ name: KBO 경기 알림
 on:
   schedule:
     - cron: "0 0 * * *"    # UTC 00:00 → 한국 시간 오전 9시
-    - cron: "0 13 * * *"   # UTC 14:00 → 한국 시간 오후 10시
+    - cron: "0 13 * * *"   # UTC 13:00 → 한국 시간 오후 10시
   workflow_dispatch:       # 수동 실행 가능
 
 jobs:
@@ -27,7 +27,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install Flask requests selenium pandas
+          pip install requests selenium pandas
 
       - name: Run KBO Crawler
         env:
