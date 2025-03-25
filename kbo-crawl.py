@@ -36,7 +36,7 @@ class GameCalCrawler:
         weekday_korean = weekday_map[today.weekday()]
 
         options = Options()
-        options.binary_location = "/usr/bin/chromium"  # Chromium 바이너리 위치 지정
+        options.binary_location = "/usr/bin/chromium-browser"  # 수정된 바이너리 경로
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         driver = webdriver.Chrome(options=options)
