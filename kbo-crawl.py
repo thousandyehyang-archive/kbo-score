@@ -133,9 +133,9 @@ def main():
     slack_message = crawler.crawling(mode=mode)
     if slack_message:
         if mode == "schedule":
-            send_slack_message("[KBO 경기 중계 일정 안내]", attachments=[{"text": slack_message}])
+            send_slack_message("", attachments=[{"text": slack_message}])
         else:
-            send_slack_message("[KBO 경기 결과 안내]", attachments=[{"text": slack_message}])
+            send_slack_message("", attachments=[{"text": slack_message}])
     else:
         print("크롤링 결과가 없습니다.")
 
