@@ -27,16 +27,21 @@ def send_slack_message(text, attachments=None):
 class GameCalCrawler:
     url = "https://www.koreabaseball.com/Schedule/Schedule.aspx"
 
-    def crawling(self):
+    def crawling(self, mode="schedule"):
+        """
+        mode:
+          - "schedule": 중계 일정 메시지 포맷
+          - "result": 경기 결과 메시지 포맷
+        """
         # 한국 기준 오늘 날짜 구하기
-        today = datetime.datetime.now(ZoneInfo("Asia/Seoul"))
-        month_str = f"{today.month:02d}"
-        day_str = f"{today.day:02d}"
+        now = datetime.datetime.now(ZoneInfo("Asia/Seoul"))
+        month_str = f"{now.month:02d}"
+        day_str = f"{now.day:02d}"
         weekday_map = {0: "월", 1: "화", 2: "수", 3: "목", 4: "금", 5: "토", 6: "일"}
-        weekday_korean = weekday_map[today.weekday()]
+        weekday_korean = weekday_map[now.weekday()]
 
         options = Options()
-        options.binary_location = "/usr/bin/chromium-browser"  # 수정된 바이너리 경로
+        options.binary_location = "/usr/bin/chromium-browser"  # 수정된 Chromium 바이너리 경로
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         driver = webdriver.Chrome(options=options)
@@ -48,8 +53,10 @@ class GameCalCrawler:
 
         # 경기 일정 테이블 가져오기
         table = driver.find_element(By.CLASS_NAME, "tbl-type06")
+        # 테이블 헤더(컬럼명)가 "날짜", "시간", "경기", ... 라고 가정합니다.
         header = table.find_element(By.TAG_NAME, "thead").text.split()
-        rows = table.find_element(By.TAG_NAME, "tbody").find_elements(By.TAG_NAME, "tr")
+        tbody = table.find_element(By.TAG_NAME, "tbody")
+        rows = tbody.find_elements(By.TAG_NAME, "tr")
         if len(rows) == 1:
             driver.quit()
             print("경기 일정이 없습니다.")
@@ -58,9 +65,10 @@ class GameCalCrawler:
         lines = []
         for row in rows:
             cells = row.find_elements(By.TAG_NAME, "td")
+            # 각 행의 텍스트를 리스트로 저장
             lines.append([cell.text for cell in cells])
 
-        # rowspan 문제 보정: 날짜가 누락된 경우 이전 행의 날짜로 채움
+        # rowspan 문제 보정: 날짜가 누락된 경우 이전 행의 날짜를 채워 넣음
         data = []
         game_day = None
         for line in lines:
@@ -71,39 +79,61 @@ class GameCalCrawler:
                 line.insert(0, game_day)
                 data.append(line)
 
-        df = pd.DataFrame(data, columns=header).replace('', '-')
-
-        # 오늘 날짜에 해당하는 행 필터링
-        today_df = df[df['날짜'].str.startswith(f"{month_str}.{day_str}")]
-        header_print = f"[{today.year} {today.month}/{today.day} ({weekday_korean}) KBO 정규리그 경기 일정/결과]"
-
-        message_lines = [header_print, ""]
-        if today_df.empty:
-            message_lines.append("오늘 경기 일정이 없습니다.")
-        else:
-            for _, row in today_df.iterrows():
-                match_text = row['경기']
-                if 'vs' in match_text:
-                    cleaned_text = re.sub(r'\s+', ' ', match_text.replace("\n", " ")).strip()
-                    parts = cleaned_text.split("vs")
-                    if len(parts) == 2:
-                        left, right = parts[0].strip(), parts[1].strip()
-                        if any(char.isdigit() for char in cleaned_text):
-                            message_lines.append(f"{left} : {right}")
-                        else:
-                            message_lines.append(f"{left} : 경기 예정")
-                else:
-                    message_lines.append(match_text)
         driver.quit()
-        return "\n".join(message_lines)
+        try:
+            df = pd.DataFrame(data, columns=header).replace('', '-')
+        except Exception as e:
+            print("DataFrame 생성 오류:", e)
+            return None
+
+        # 오늘 날짜에 해당하는 행 필터링 (날짜 형식이 "MM.DD(요일)"로 시작한다고 가정)
+        today_df = df[df['날짜'].str.startswith(f"{month_str}.{day_str}")]
+        if mode == "result":
+            # 경기 결과 메시지 포맷
+            header_msg = f"[{now.year} {now.month}/{now.day} ({weekday_korean}) KBO 정규리그 경기 결과]"
+            game_lines = []
+            # 결과가 있는 경우(숫자 포함)만 출력
+            for _, row in today_df.iterrows():
+                game_text = row.get("경기", "")
+                # 만약 경기 텍스트에 숫자가 포함되어 있으면 결과로 간주
+                if any(char.isdigit() for char in game_text):
+                    cleaned = re.sub(r'\s+', ' ', game_text.replace("\n", " ")).strip()
+                    # 예상 포맷: "한화 0 vs 5 LG" → "한화 0 : 5 LG"
+                    parts = cleaned.split("vs")
+                    if len(parts) == 2:
+                        left = parts[0].strip()
+                        right = parts[1].strip()
+                        game_lines.append(f"{left} : {right}")
+            if not game_lines:
+                game_lines.append("오늘 경기 결과가 없습니다.")
+            return header_msg + "\n\n" + "\n".join(game_lines)
+        else:
+            # 경기 중계 일정 메시지 포맷
+            header_msg = f"[{now.year} KBO 정규리그 경기 중계 일정]"
+            subheader = f"{int(month_str)}월 {int(day_str)}일 {weekday_korean}요일 KBO 리그 인터넷/모바일 생중계는 TVING 에서!"
+            game_lines = []
+            for _, row in today_df.iterrows():
+                # "시간"과 "경기" 컬럼을 사용 (예: "13:00"과 "NC 다이노스 VS LG 트윈스")
+                time_info = row.get("시간", "").strip()
+                game_info = row.get("경기", "").strip()
+                if game_info:
+                    game_lines.append(f"{time_info} {game_info}")
+            if not game_lines:
+                game_lines.append("오늘 경기 일정이 없습니다.")
+            return header_msg + "\n" + subheader + "\n\n" + "\n".join(game_lines)
 
 def main():
     crawler = GameCalCrawler()
-    slack_message = crawler.crawling()
+    now = datetime.datetime.now(ZoneInfo("Asia/Seoul"))
+    # 오전 9시 이전은 중계 일정, 그 이후는 경기 결과 (예시)
+    if now.hour < 12:
+        mode = "schedule"
+    else:
+        mode = "result"
+    slack_message = crawler.crawling(mode=mode)
     if slack_message:
-        now = datetime.datetime.now(ZoneInfo("Asia/Seoul"))
-        if now.hour < 12:
-            send_slack_message("[KBO 경기 일정 안내]", attachments=[{"text": slack_message}])
+        if mode == "schedule":
+            send_slack_message("[KBO 경기 중계 일정 안내]", attachments=[{"text": slack_message}])
         else:
             send_slack_message("[KBO 경기 결과 안내]", attachments=[{"text": slack_message}])
     else:
