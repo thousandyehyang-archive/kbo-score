@@ -1,4 +1,3 @@
-from flask import Flask, jsonify
 import os
 import json
 import requests
@@ -10,8 +9,6 @@ import pandas as pd
 from zoneinfo import ZoneInfo
 import datetime
 import re
-
-app = Flask(__name__)
 
 def send_slack_message(text, attachments=None):
     webhook_url = os.environ.get("SLACK_WEBHOOK_URL")
