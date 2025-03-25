@@ -121,9 +121,9 @@ def send_message():
         now = datetime.datetime.now(ZoneInfo("Asia/Seoul"))
         # 오전이면 경기 일정, 오후이면 경기 결과
         if now.hour < 12:
-            send_slack_message("🏟️ [KBO 경기 일정 안내]", attachments=[{"text": slack_message}])
+            send_slack_message("[KBO 경기 일정 안내]", attachments=[{"text": slack_message}])
         else:
-            send_slack_message("📊 [KBO 경기 결과 안내]", attachments=[{"text": slack_message}])
+            send_slack_message("[KBO 경기 결과 안내]", attachments=[{"text": slack_message}])
         return jsonify({"status": "Message sent"}), 200
     return jsonify({"status": "No data"}), 200
 
