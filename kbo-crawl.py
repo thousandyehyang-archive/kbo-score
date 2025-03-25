@@ -1,3 +1,4 @@
+from flask import Flask, jsonify
 import os
 import json
 import requests
@@ -10,14 +11,14 @@ from zoneinfo import ZoneInfo
 import datetime
 import re
 
+app = Flask(__name__)
+
 def send_slack_message(text, attachments=None):
     webhook_url = os.environ.get("SLACK_WEBHOOK_URL")
     if not webhook_url:
         print("SLACK_WEBHOOK_URL not set.")
         return
-    payload = {
-        "text": text
-    }
+    payload = { "text": text }
     if attachments:
         payload["attachments"] = attachments
     try:
@@ -36,7 +37,6 @@ class GameCalCrawler:
         day_str = f"{today.day:02d}"
         weekday_map = {0:"월", 1:"화", 2:"수", 3:"목", 4:"금", 5:"토", 6:"일"}
         weekday_korean = weekday_map[today.weekday()]
-        date_str = f"{month_str}.{day_str}({weekday_korean})"
 
         options = Options()
         options.add_argument("--headless")
@@ -95,14 +95,13 @@ class GameCalCrawler:
         else:
             for _, row in today_df.iterrows():
                 match_text = row['경기']
-                # 결과가 있을 경우: 예시 "한화\n0 vs\n5\nLG"
                 if 'vs' in match_text:
                     cleaned_text = re.sub(r'\s+', ' ', match_text.replace("\n", " ")).strip()
                     parts = cleaned_text.split("vs")
                     if len(parts) == 2:
                         left = parts[0].strip()
                         right = parts[1].strip()
-                        # 경기 결과(스코어)가 포함된 경우와 아직 결과가 없는 경우를 구분
+                        # 스코어가 포함된 경우와 경기 예정인 경우 구분
                         if any(char.isdigit() for char in cleaned_text):
                             message_lines.append(f"{left} : {right}")
                         else:
@@ -111,20 +110,23 @@ class GameCalCrawler:
                     message_lines.append(match_text)
         
         driver.quit()
-        # 최종 메시지 문자열 생성
         final_message = "\n".join(message_lines)
         return final_message
 
-if __name__ == "__main__":
+@app.route('/send-message', methods=['GET'])
+def send_message():
     crawler = GameCalCrawler()
     slack_message = crawler.crawling()
     if slack_message:
-        # 현재 시간에 따라 오전 9시(경기 일정)와 오후 11시(경기 결과)로 구분하여 메시지를 보낼 수 있습니다.
         now = datetime.datetime.now(ZoneInfo("Asia/Seoul"))
-        # 예시: 오전 9시 이전이면 경기 일정만, 오후 11시 이후면 경기 결과(스코어 포함) 전송
+        # 오전이면 경기 일정, 오후이면 경기 결과
         if now.hour < 12:
-            # 오전에는 경기 결과가 없으므로 일정만 보냄
             send_slack_message("🏟️ [KBO 경기 일정 안내]", attachments=[{"text": slack_message}])
         else:
-            # 오후 11시에는 경기 결과를 포함하여 보냄
             send_slack_message("📊 [KBO 경기 결과 안내]", attachments=[{"text": slack_message}])
+        return jsonify({"status": "Message sent"}), 200
+    return jsonify({"status": "No data"}), 200
+
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
