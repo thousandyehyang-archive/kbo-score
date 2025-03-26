@@ -2,10 +2,11 @@ name: KBO 경기 알림
 
 on:
   schedule:
-    # KST 화~일 오전 8시
+    # KST 화~일 오전 8시 → UTC 월~토 23시
     - cron: "0 23 * * 1-6"
-    # KST 화~일 오후 9시
-    - cron: "0 12 * * 2-7"
+    # KST 화~일 오후 9시 → UTC 화~토 12시, 일요일(0) 포함
+    - cron: "0 12 * * 2-6"
+    - cron: "0 12 * * 0"
   workflow_dispatch:
 
 jobs:
