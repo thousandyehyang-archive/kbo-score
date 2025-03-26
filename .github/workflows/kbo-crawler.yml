@@ -4,9 +4,9 @@ on:
   schedule:
     # KST 화~일 오전 8시 → UTC 월~토 23시
     - cron: "0 23 * * 1-6"
-    # KST 화~일 오후 9시 → UTC 화~토 12시, 일요일(0) 포함
-    - cron: "0 12 * * 2-6"
-    - cron: "0 12 * * 0"
+    # KST 화~일 오후 10시 → UTC 화~토 13시, 일요일(0) 포함
+    - cron: "0 13 * * 2-6"
+    - cron: "0 13 * * 0"
   workflow_dispatch:
 
 jobs:
