@@ -96,6 +96,9 @@ class GameCalCrawler:
                     if len(parts) == 2:
                         left = parts[0].strip()
                         right = parts[1].strip()
+                        # 팀 이름과 점수 사이에 공백 삽입
+                        left = re.sub(r'(\D)(\d)', r'\1 \2', left)
+                        right = re.sub(r'(\d)(\D)', r'\1 \2', right)
                         game_lines.append(f"{left} : {right}")
             if not game_lines:
                 game_lines.append("오늘 경기 결과가 없습니다.")
