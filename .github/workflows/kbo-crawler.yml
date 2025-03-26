@@ -2,8 +2,8 @@ name: KBO 경기 알림
 
 on:
   schedule:
-    - cron: "0 1 * * *"    # UTC 01:00 → 한국 시간 오전 10시
-    - cron: "0 13 * * *"   # UTC 13:00 → 한국 시간 오후 10시
+    - cron: '0 1 * * *'    # UTC 01:00 → 한국 시간 오전 10시
+    - cron: '0 13 * * *'   # UTC 13:00 → 한국 시간 오후 10시
   workflow_dispatch:       # 수동 실행 가능
 
 jobs:
